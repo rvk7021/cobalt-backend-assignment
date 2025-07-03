@@ -68,9 +68,25 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
     }
 
     try {
+        // Get channel name for display purposes
+        const accessToken = await getValidAccessTokenFromWorkspace(workspace);
+        const client = new WebClient(accessToken);
+        
+        let channelName = channel; // Default to channel ID
+        try {
+            const channelInfo = await client.conversations.info({ channel });
+            if (channelInfo.ok && channelInfo.channel) {
+                channelName = `${(channelInfo.channel as any).is_private ? '🔒 ' : '# '}${(channelInfo.channel as any).name}`;
+            }
+        } catch (error) {
+            console.warn('Could not fetch channel name, using ID:', error);
+        }
+
         if (scheduledTime) {
             // Schedule the message
             const scheduledDate = new Date(scheduledTime);
+            console.log(`Scheduling message: Input time: ${scheduledTime}, Parsed date: ${scheduledDate.toISOString()}, Local time: ${scheduledDate.toLocaleString()}`);
+            
             if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
                 res.status(400).json({ error: 'Invalid or past scheduled time.' });
                 return;
@@ -79,18 +95,22 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
             const scheduledMsg = new ScheduledMessage({
                 workspaceId: workspace._id,
                 channel,
+                channelName,
                 message,
                 scheduledTime: scheduledDate,
                 sent: false,
                 cancelled: false,
             });
             await scheduledMsg.save();
-            res.status(201).json({ message: 'Message scheduled successfully!', scheduledMessage: scheduledMsg });
+            
+            console.log(`Message scheduled successfully for ${scheduledDate.toISOString()}`);
+            res.status(201).json({ 
+                message: 'Message scheduled successfully!', 
+                scheduledMessage: scheduledMsg,
+                scheduledFor: scheduledDate.toISOString()
+            });
         } else {
             // Send the message immediately
-            const accessToken = await getValidAccessTokenFromWorkspace(workspace);
-            const client = new WebClient(accessToken);
-
             const result = await client.chat.postMessage({
                 channel,
                 text: message,
@@ -124,6 +144,75 @@ router.get('/:teamId/scheduled-messages', async (req: Request, res: Response): P
     } catch (error: any) {
         console.error('Error fetching scheduled messages:', error.message);
         res.status(500).json({ error: 'Failed to fetch scheduled messages.', details: error.message });
+    }
+});
+
+// PUT /api/:teamId/scheduled-messages/:messageId - Edit a scheduled message
+router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
+    const { workspace } = req as any;
+    const { messageId } = req.params;
+    const { message, scheduledTime, channel } = req.body;
+
+    if (!message) {
+        res.status(400).json({ error: 'Message content is required.' });
+        return;
+    }
+
+    try {
+        // Find the scheduled message
+        const scheduledMsg = await ScheduledMessage.findOne({
+            _id: messageId,
+            workspaceId: workspace._id,
+            sent: false,
+            cancelled: false
+        });
+
+        if (!scheduledMsg) {
+            res.status(404).json({ error: 'Scheduled message not found or already sent/cancelled.' });
+            return;
+        }
+
+        // Update the message content
+        scheduledMsg.message = message;
+
+        // Update scheduled time if provided
+        if (scheduledTime) {
+            const newScheduledDate = new Date(scheduledTime);
+            if (isNaN(newScheduledDate.getTime()) || newScheduledDate <= new Date()) {
+                res.status(400).json({ error: 'Invalid or past scheduled time.' });
+                return;
+            }
+            scheduledMsg.scheduledTime = newScheduledDate;
+        }
+
+        // Update channel if provided
+        if (channel && channel !== scheduledMsg.channel) {
+            const accessToken = await getValidAccessTokenFromWorkspace(workspace);
+            const client = new WebClient(accessToken);
+            
+            let channelName = channel;
+            try {
+                const channelInfo = await client.conversations.info({ channel });
+                if (channelInfo.ok && channelInfo.channel) {
+                    channelName = `${(channelInfo.channel as any).is_private ? '🔒 ' : '# '}${(channelInfo.channel as any).name}`;
+                }
+            } catch (error) {
+                console.warn('Could not fetch channel name, using ID:', error);
+            }
+            
+            scheduledMsg.channel = channel;
+            scheduledMsg.channelName = channelName;
+        }
+
+        await scheduledMsg.save();
+
+        res.json({ 
+            message: 'Scheduled message updated successfully!', 
+            scheduledMessage: scheduledMsg 
+        });
+    } catch (error: any) {
+        console.error('Error updating scheduled message:', error.message);
+        res.status(500).json({ error: 'Failed to update scheduled message.', details: error.message });
     }
 });
 

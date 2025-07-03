@@ -7,6 +7,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IScheduledMessage extends Document {
     workspaceId: mongoose.Schema.Types.ObjectId; // Reference to the Workspace document
     channel: string; // Slack channel ID
+    channelName: string; // Slack channel name for display
     message: string; // Message content
     scheduledTime: Date; // The time the message is scheduled to be sent
     sent: boolean; // True if the message has been sent
@@ -18,6 +19,7 @@ export interface IScheduledMessage extends Document {
 const ScheduledMessageSchema: Schema = new Schema({
     workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true },
     channel: { type: String, required: true },
+    channelName: { type: String, required: true }, // Display name of the channel
     message: { type: String, required: true },
     scheduledTime: { type: Date, required: true },
     sent: { type: Boolean, default: false },
