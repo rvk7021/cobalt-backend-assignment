@@ -9,14 +9,14 @@ import Workspace from '../models/Workspace';
 
 const router = Router();
 
-// Middleware to ensure workspaceId is provided and valid
-router.use('/:workspaceId/*', async (req: Request, res: Response, next): Promise<void> => {
-    const { workspaceId } = req.params;
-    if (!workspaceId) {
-        res.status(400).json({ error: 'Workspace ID is required.' });
+// Middleware to ensure teamId is provided and valid
+router.use('/:teamId/*', async (req: Request, res: Response, next): Promise<void> => {
+    const { teamId } = req.params;
+    if (!teamId) {
+        res.status(400).json({ error: 'Team ID is required.' });
         return;
     }
-    const workspace = await Workspace.findById(workspaceId);
+    const workspace = await Workspace.findOne({ team_id: teamId });
     if (!workspace) {
         res.status(404).json({ error: 'Workspace not found.' });
         return;
@@ -26,8 +26,8 @@ router.use('/:workspaceId/*', async (req: Request, res: Response, next): Promise
     next();
 });
 
-// GET /api/:workspaceId/channels - Get a list of channels for the connected workspace
-router.get('/:workspaceId/channels', async (req: Request, res: Response): Promise<void> => {
+// GET /api/:teamId/channels - Get a list of channels for the connected workspace
+router.get('/:teamId/channels', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
         const accessToken = await getValidAccessToken(workspace._id);
@@ -57,8 +57,8 @@ router.get('/:workspaceId/channels', async (req: Request, res: Response): Promis
     }
 });
 
-// POST /api/:workspaceId/send-message - Send a message immediately or schedule it
-router.post('/:workspaceId/send-message', async (req: Request, res: Response): Promise<void> => {
+// POST /api/:teamId/send-message - Send a message immediately or schedule it
+router.post('/:teamId/send-message', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { channel, message, scheduledTime } = req.body;
 
@@ -109,8 +109,8 @@ router.post('/:workspaceId/send-message', async (req: Request, res: Response): P
     }
 });
 
-// GET /api/:workspaceId/scheduled-messages - Get a list of scheduled messages
-router.get('/:workspaceId/scheduled-messages', async (req: Request, res: Response): Promise<void> => {
+// GET /api/:teamId/scheduled-messages - Get a list of scheduled messages
+router.get('/:teamId/scheduled-messages', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
         // Fetch scheduled messages that are not yet sent and not cancelled
@@ -127,8 +127,8 @@ router.get('/:workspaceId/scheduled-messages', async (req: Request, res: Respons
     }
 });
 
-// DELETE /api/:workspaceId/scheduled-messages/:messageId - Cancel a scheduled message
-router.delete('/:workspaceId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
+// DELETE /api/:teamId/scheduled-messages/:messageId - Cancel a scheduled message
+router.delete('/:teamId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { messageId } = req.params;
 

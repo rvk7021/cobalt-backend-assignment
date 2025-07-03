@@ -17,8 +17,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-// Enable CORS for all origins during development. In production, restrict to your frontend's origin.
-app.use(cors({ origin: process.env.FRONTEND_URL || '*' }));
+// CORS configuration to allow both development and production origins
+const corsOptions = {
+    origin: [
+        'http://localhost:3000',              // Local development
+        'https://slack-connect.netlify.app'   // Production frontend
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json()); // Parse JSON request bodies
 
 // Connect to MongoDB
