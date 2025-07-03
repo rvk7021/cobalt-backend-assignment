@@ -35,7 +35,10 @@ router.get('/install', (req: Request, res: Response) => {
         `client_id=${config.SLACK_CLIENT_ID}&` +
         `scope=${encodeURIComponent(scopes)}&` +
         `redirect_uri=${encodeURIComponent(config.SLACK_REDIRECT_URI)}&` +
-        `state=${state}`;
+        `state=${state}&` +
+        `user_scope=&` +                    // Force workspace selection
+        `team=&` +                         // Don't pre-select any team
+        `granular_bot_scope=1`;            // Enable granular permissions
     
     res.redirect(installUrl);
 });
