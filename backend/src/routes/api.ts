@@ -10,14 +10,16 @@ import Workspace from '../models/Workspace';
 const router = Router();
 
 // Middleware to ensure workspaceId is provided and valid
-router.use('/:workspaceId/*', async (req: Request, res: Response, next) => {
+router.use('/:workspaceId/*', async (req: Request, res: Response, next): Promise<void> => {
     const { workspaceId } = req.params;
     if (!workspaceId) {
-        return res.status(400).json({ error: 'Workspace ID is required.' });
+        res.status(400).json({ error: 'Workspace ID is required.' });
+        return;
     }
     const workspace = await Workspace.findById(workspaceId);
     if (!workspace) {
-        return res.status(404).json({ error: 'Workspace not found.' });
+        res.status(404).json({ error: 'Workspace not found.' });
+        return;
     }
     // Attach workspace object to request for later use
     (req as any).workspace = workspace;
@@ -25,7 +27,7 @@ router.use('/:workspaceId/*', async (req: Request, res: Response, next) => {
 });
 
 // GET /api/:workspaceId/channels - Get a list of channels for the connected workspace
-router.get('/:workspaceId/channels', async (req: Request, res: Response) => {
+router.get('/:workspaceId/channels', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
         const accessToken = await getValidAccessToken(workspace._id);
@@ -56,12 +58,13 @@ router.get('/:workspaceId/channels', async (req: Request, res: Response) => {
 });
 
 // POST /api/:workspaceId/send-message - Send a message immediately or schedule it
-router.post('/:workspaceId/send-message', async (req: Request, res: Response) => {
+router.post('/:workspaceId/send-message', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { channel, message, scheduledTime } = req.body;
 
     if (!channel || !message) {
-        return res.status(400).json({ error: 'Channel and message are required.' });
+        res.status(400).json({ error: 'Channel and message are required.' });
+        return;
     }
 
     try {
@@ -69,7 +72,8 @@ router.post('/:workspaceId/send-message', async (req: Request, res: Response) =>
             // Schedule the message
             const scheduledDate = new Date(scheduledTime);
             if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
-                return res.status(400).json({ error: 'Invalid or past scheduled time.' });
+                res.status(400).json({ error: 'Invalid or past scheduled time.' });
+                return;
             }
 
             const scheduledMsg = new ScheduledMessage({
@@ -106,7 +110,7 @@ router.post('/:workspaceId/send-message', async (req: Request, res: Response) =>
 });
 
 // GET /api/:workspaceId/scheduled-messages - Get a list of scheduled messages
-router.get('/:workspaceId/scheduled-messages', async (req: Request, res: Response) => {
+router.get('/:workspaceId/scheduled-messages', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
         // Fetch scheduled messages that are not yet sent and not cancelled
@@ -124,7 +128,7 @@ router.get('/:workspaceId/scheduled-messages', async (req: Request, res: Respons
 });
 
 // DELETE /api/:workspaceId/scheduled-messages/:messageId - Cancel a scheduled message
-router.delete('/:workspaceId/scheduled-messages/:messageId', async (req: Request, res: Response) => {
+router.delete('/:workspaceId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { messageId } = req.params;
 
@@ -136,7 +140,8 @@ router.delete('/:workspaceId/scheduled-messages/:messageId', async (req: Request
         );
 
         if (!message) {
-            return res.status(404).json({ error: 'Scheduled message not found or already sent/cancelled.' });
+            res.status(404).json({ error: 'Scheduled message not found or already sent/cancelled.' });
+            return;
         }
 
         res.json({ message: 'Scheduled message cancelled successfully!', cancelledMessage: message });
