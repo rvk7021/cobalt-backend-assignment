@@ -133,13 +133,19 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
             console.log(`Workspace ${team_name} (ID: ${team_id}) connected successfully.`);
             console.log(`Bot User ID: ${bot_user_id}, App ID: ${app_id}`);
             
+            // Determine the correct frontend URL
+            const frontendUrl = process.env.NODE_ENV === 'production' 
+                ? process.env.FRONTEND_URL || 'https://your-frontend-url.netlify.app' // Replace with your actual frontend URL
+                : config.FRONTEND_URL;
+            
             // Redirect to frontend success page with comprehensive data
-            const redirectUrl = `${config.FRONTEND_URL}/auth-success?` +
+            const redirectUrl = `${frontendUrl}/auth-success?` +
                 `teamId=${team_id}&` +
                 `teamName=${encodeURIComponent(team_name)}&` +
                 `botUserId=${bot_user_id}&` +
                 `userId=${user_id}`;
             
+            console.log(`Redirecting to: ${redirectUrl}`);
             res.redirect(redirectUrl);
         } else {
             console.error('Slack OAuth access error:', data.error);
