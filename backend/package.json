@@ -1,0 +1,41 @@
+{
+  "name": "slack-connect-backend",
+  "version": "1.0.0",
+  "description": "Backend for Slack Connect application with message scheduling",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "dotenv": "^16.3.1",
+    "cors": "^2.8.5",
+    "@slack/web-api": "^6.9.0",
+    "axios": "^1.5.0",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.14",
+    "@types/node-cron": "^3.0.8",
+    "typescript": "^5.1.6",
+    "ts-node": "^10.9.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": [
+    "slack",
+    "backend",
+    "scheduling",
+    "messages",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC"
+}
