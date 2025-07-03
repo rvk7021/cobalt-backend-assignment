@@ -9,7 +9,7 @@ import axios from 'axios';
 
 /**
  * Refreshes the Slack access token for a given workspace if it's expired or near expiration.
- * @param workspaceId The ID of the workspace to refresh tokens for.
+ * @param workspaceId The MongoDB ObjectId of the workspace to refresh tokens for.
  * @returns The valid (refreshed or existing) access token.
  * @throws Error if token refresh fails or workspace not found.
  */
@@ -20,20 +20,29 @@ export const getValidAccessToken = async (workspaceId: string): Promise<string> 
         throw new Error('Workspace not found.');
     }
 
-    // Check if refresh token exists
-    if (!workspace.refreshToken) {
-        throw new Error('No refresh token available for this workspace.');
-    }
+    return getValidAccessTokenFromWorkspace(workspace);
+};
 
-    // Decrypt the stored refresh token
-    const decryptedRefreshToken = decrypt(workspace.refreshToken);
+/**
+ * Refreshes the Slack access token for a given workspace object if it's expired or near expiration.
+ * @param workspace The workspace document object.
+ * @returns The valid (refreshed or existing) access token.
+ * @throws Error if token refresh fails.
+ */
+export const getValidAccessTokenFromWorkspace = async (workspace: any): Promise<string> => {
+    // Check if refresh token exists - if not, just return the current access token
+    if (!workspace.refreshToken) {
+        console.log(`No refresh token for workspace ${workspace.team_name}. Using current access token.`);
+        return decrypt(workspace.accessToken);
+    }
 
     // Check if the access token is expired or will expire soon (e.g., within the next 5 minutes)
     const now = new Date();
     
     // Handle case where expiresAt might be undefined
     if (!workspace.expiresAt) {
-        console.log(`No expiration date found for workspace ${workspace.team_name}. Treating token as expired.`);
+        console.log(`No expiration date found for workspace ${workspace.team_name}. Using current access token.`);
+        return decrypt(workspace.accessToken);
     } else {
         const expiresAt = new Date(workspace.expiresAt);
         const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
@@ -43,6 +52,9 @@ export const getValidAccessToken = async (workspaceId: string): Promise<string> 
             return decrypt(workspace.accessToken);
         }
     }
+
+    // Decrypt the stored refresh token
+    const decryptedRefreshToken = decrypt(workspace.refreshToken);
 
     console.log(`Access token for workspace ${workspace.team_name} (ID: ${workspace.team_id}) is expired or near expiration. Attempting to refresh...`);
     

@@ -3,7 +3,7 @@
 
 import { Router, Request, Response } from 'express';
 import { WebClient } from '@slack/web-api';
-import { getValidAccessToken } from '../utils/tokenRefresh';
+import { getValidAccessToken, getValidAccessTokenFromWorkspace } from '../utils/tokenRefresh';
 import ScheduledMessage from '../models/ScheduledMessage';
 import Workspace from '../models/Workspace';
 
@@ -30,7 +30,7 @@ router.use('/:teamId/*', async (req: Request, res: Response, next): Promise<void
 router.get('/:teamId/channels', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
-        const accessToken = await getValidAccessToken(workspace._id);
+        const accessToken = await getValidAccessTokenFromWorkspace(workspace);
         const client = new WebClient(accessToken);
 
         // Fetch public and private channels (conversations)
@@ -88,7 +88,7 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
             res.status(201).json({ message: 'Message scheduled successfully!', scheduledMessage: scheduledMsg });
         } else {
             // Send the message immediately
-            const accessToken = await getValidAccessToken(workspace._id);
+            const accessToken = await getValidAccessTokenFromWorkspace(workspace);
             const client = new WebClient(accessToken);
 
             const result = await client.chat.postMessage({
