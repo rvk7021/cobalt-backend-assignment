@@ -13,7 +13,7 @@ npm start
 ## Environment Variables to Set:
 - SLACK_CLIENT_ID=your_slack_client_id
 - SLACK_CLIENT_SECRET=your_slack_client_secret  
-- SLACK_REDIRECT_URI=https://your-app-name.onrender.com/slack/oauth_redirect
+- SLACK_REDIRECT_URI=https://cobalt-backend-assignment.onrender.com/slack/oauth_redirect
 - MONGO_URI=your_mongodb_connection_string
 - ENCRYPTION_KEY=your_32_byte_encryption_key
 - PORT=5000
