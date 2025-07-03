@@ -240,4 +240,58 @@ router.delete('/:teamId/scheduled-messages/:messageId', async (req: Request, res
     }
 });
 
+// POST /api/:teamId/logout - Logout and revoke tokens
+router.post('/:teamId/logout', async (req: Request, res: Response): Promise<void> => {
+    const { workspace } = req as any;
+    const { soft = false } = req.body; // Add soft logout option
+    
+    try {
+        if (!soft) {
+            // Full logout: revoke tokens with Slack
+            const accessToken = await getValidAccessTokenFromWorkspace(workspace);
+            const client = new WebClient(accessToken);
+            
+            try {
+                await client.auth.revoke();
+                console.log(`Tokens revoked for workspace ${workspace.team_name}`);
+            } catch (revokeError) {
+                console.warn('Failed to revoke token with Slack:', revokeError);
+                // Continue with cleanup even if revoke fails
+            }
+            
+            // Cancel all pending scheduled messages for this workspace
+            await ScheduledMessage.updateMany(
+                { 
+                    workspaceId: workspace._id, 
+                    sent: false, 
+                    cancelled: false 
+                },
+                { 
+                    $set: { cancelled: true } 
+                }
+            );
+            
+            // Remove the workspace from database
+            await Workspace.findByIdAndDelete(workspace._id);
+            
+            console.log(`Workspace ${workspace.team_name} (${workspace.team_id}) fully logged out and cleaned up`);
+        } else {
+            // Soft logout: just return success without revoking tokens
+            console.log(`Soft logout for workspace ${workspace.team_name} (${workspace.team_id})`);
+        }
+        
+        res.json({ 
+            message: soft ? 'Successfully signed out.' : 'Successfully logged out and disconnected workspace.',
+            redirectUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/`
+        });
+        
+    } catch (error: any) {
+        console.error('Error during logout:', error.message);
+        res.status(500).json({ 
+            error: 'Failed to logout completely.', 
+            details: error.message 
+        });
+    }
+});
+
 export default router;
