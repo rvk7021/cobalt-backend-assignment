@@ -7,7 +7,9 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "build": "tsc",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "postinstall": "npm run build",
+    "deploy": "npm install && npm run build && npm start"
   },
   "dependencies": {
     "express": "^4.18.2",
