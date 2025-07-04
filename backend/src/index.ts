@@ -14,12 +14,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const corsOptions = {
-    origin: [
-        'http://localhost:3000',
-        'https://slack-connect.netlify.app'
-    ],
+    origin: process.env.FRONTEND_URL?.split(',') || '*',
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 };
 
 app.use(cors(corsOptions));

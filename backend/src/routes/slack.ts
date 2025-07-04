@@ -1,3 +1,4 @@
+// src/routes/slack.ts
 // Express routes for handling Slack OAuth 2.0 flow.
 
 import { Router, Request, Response } from 'express';
@@ -8,20 +9,26 @@ import { encrypt } from '../utils/encryption';
 
 const router = Router();
 
+// Route to initiate Slack OAuth installation
 router.get('/install', (req: Request, res: Response) => {
+    // Generate a random state parameter for CSRF protection
     const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     
+    // Store state in session or temporary storage (for production, use Redis or database)
+    // For now, we'll skip state validation but it's recommended for production
+    
+    // Enhanced scopes for better functionality
     const scopes = [
-        'channels:read',
-        'chat:write',
-        'chat:write.public',
-        'chat:write.customize',
-        'channels:history',
-        'groups:read',
-        'im:read',
-        'mpim:read',
-        'users:read',
-        'team:read'
+        'channels:read',        // Read channel information
+        'chat:write',           // Send messages as the app
+        'chat:write.public',    // Send messages to channels the app isn't in
+        'chat:write.customize', // Customize message appearance
+        'channels:history',     // Read message history
+        'groups:read',          // Access private channels
+        'im:read',              // Access direct messages
+        'mpim:read',            // Access group direct messages
+        'users:read',           // Read user information
+        'team:read'             // Read workspace information
     ].join(',');
     
     const installUrl = `https://slack.com/oauth/v2/authorize?` +
@@ -29,13 +36,14 @@ router.get('/install', (req: Request, res: Response) => {
         `scope=${encodeURIComponent(scopes)}&` +
         `redirect_uri=${encodeURIComponent(config.SLACK_REDIRECT_URI)}&` +
         `state=${state}&` +
-        `user_scope=&` +
-        `team=&` +
-        `granular_bot_scope=1`;
+        `user_scope=&` +                    // Force workspace selection
+        `team=&` +                         // Don't pre-select any team
+        `granular_bot_scope=1`;            // Enable granular permissions
     
     res.redirect(installUrl);
 });
 
+// OAuth redirect URL - Slack will redirect here after user authorizes the app
 router.get('/oauth_redirect', async (req: Request, res: Response) => {
     const { code, error, state } = req.query;
 
@@ -50,6 +58,7 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
     }
 
     try {
+        // Exchange the authorization code for an access token
         const response = await axios.post('https://slack.com/api/oauth.v2.access', null, {
             params: {
                 client_id: config.SLACK_CLIENT_ID,
@@ -77,9 +86,11 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
                 enterprise
             } = data;
 
+            // Extract team information
             const team_id = team?.id;
             const team_name = team?.name;
             
+            // Extract user information
             const user_id = authed_user?.id;
             const user_access_token = authed_user?.access_token;
             const user_refresh_token = authed_user?.refresh_token;
@@ -90,14 +101,17 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
                 return res.redirect(`${config.FRONTEND_URL}/auth-failed?error=invalid_response`);
             }
 
+            // Calculate expiration dates
             const expiresAt = expires_in ? new Date(Date.now() + expires_in * 1000) : null;
             const userExpiresAt = user_expires_in ? new Date(Date.now() + user_expires_in * 1000) : null;
 
+            // Encrypt tokens before storing
             const encryptedAccessToken = encrypt(access_token);
             const encryptedRefreshToken = refresh_token ? encrypt(refresh_token) : null;
             const encryptedUserAccessToken = user_access_token ? encrypt(user_access_token) : null;
             const encryptedUserRefreshToken = user_refresh_token ? encrypt(user_refresh_token) : null;
 
+            // Find and update or create a new workspace entry
             const workspace = await Workspace.findOneAndUpdate(
                 { team_id: team_id },
                 {
@@ -122,10 +136,12 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
             console.log(`Workspace ${team_name} (ID: ${team_id}) connected successfully.`);
             console.log(`Bot User ID: ${bot_user_id}, App ID: ${app_id}`);
             
+            // Determine the correct frontend URL
             const frontendUrl = process.env.NODE_ENV === 'production' 
-                ? process.env.FRONTEND_URL || 'https://your-frontend-url.netlify.app'
+                ? process.env.FRONTEND_URL || 'https://your-frontend-url.netlify.app' // Replace with your actual frontend URL
                 : config.FRONTEND_URL;
             
+            // Redirect to frontend success page with comprehensive data
             const redirectUrl = `${frontendUrl}/auth-success?` +
                 `teamId=${team_id}&` +
                 `teamName=${encodeURIComponent(team_name)}&` +
@@ -144,6 +160,7 @@ router.get('/oauth_redirect', async (req: Request, res: Response) => {
     }
 });
 
+// Route to check installation status for a team
 router.get('/status/:teamId', async (req: Request, res: Response): Promise<void> => {
     try {
         const { teamId } = req.params;
@@ -182,6 +199,7 @@ router.get('/status/:teamId', async (req: Request, res: Response): Promise<void>
     }
 });
 
+// Route to get all connected workspaces (for admin purposes)
 router.get('/workspaces', async (req: Request, res: Response): Promise<void> => {
     try {
         const workspaces = await Workspace.find({ isActive: true })
