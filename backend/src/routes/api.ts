@@ -6,7 +6,6 @@ import Workspace from '../models/Workspace';
 
 const router = Router();
 
-// Middleware to ensure teamId is provided and valid
 router.use('/:teamId/*', async (req: Request, res: Response, next): Promise<void> => {
     const { teamId } = req.params;
     if (!teamId) {
@@ -18,23 +17,20 @@ router.use('/:teamId/*', async (req: Request, res: Response, next): Promise<void
         res.status(404).json({ error: 'Workspace not found.' });
         return;
     }
-    // Attach workspace object to request for later use
     (req as any).workspace = workspace;
     next();
 });
 
-// GET /api/:teamId/channels - Get a list of channels for the connected workspace
 router.get('/:teamId/channels', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
         const accessToken = await getValidAccessTokenFromWorkspace(workspace);
         const client = new WebClient(accessToken);
 
-        // Fetch public and private channels (conversations)
         const result = await client.conversations.list({
             types: 'public_channel,private_channel',
             exclude_archived: true,
-            limit: 100 // Adjust limit as needed
+            limit: 100
         });
 
         if (result.ok) {
@@ -65,11 +61,10 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
     }
 
     try {
-        // Get channel name for display purposes
         const accessToken = await getValidAccessTokenFromWorkspace(workspace);
         const client = new WebClient(accessToken);
 
-        let channelName = channel; // Default to channel ID
+        let channelName = channel;
         try {
             const channelInfo = await client.conversations.info({ channel });
             if (channelInfo.ok && channelInfo.channel) {
@@ -90,7 +85,7 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
             }
 
             const scheduledMsg = new ScheduledMessage({
-                userId: workspace.userId, // Use userId instead of workspaceId
+                userId: workspace.userId,
                 teamId: workspace.team_id,
                 channel,
                 channelName,
@@ -126,16 +121,14 @@ router.post('/:teamId/send-message', async (req: Request, res: Response): Promis
     }
 });
 
-// GET /api/:teamId/scheduled-messages - Get a list of scheduled messages
 router.get('/:teamId/scheduled-messages', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     try {
-        // Fetch scheduled messages that are pending (not sent or failed)
         const messages = await ScheduledMessage.find({
             userId: workspace.userId,
             teamId: workspace.team_id,
             status: 'pending',
-        }).sort({ scheduledTime: 1 }); // Sort by scheduled time ascending
+        }).sort({ scheduledTime: 1 });
 
         res.json({ messages });
     } catch (error: any) {
@@ -144,7 +137,6 @@ router.get('/:teamId/scheduled-messages', async (req: Request, res: Response): P
     }
 });
 
-// PUT /api/:teamId/scheduled-messages/:messageId - Edit a scheduled message
 router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { messageId } = req.params;
@@ -156,7 +148,6 @@ router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: R
     }
 
     try {
-        // Find the scheduled message
         const scheduledMsg = await ScheduledMessage.findOne({
             _id: messageId,
             userId: workspace.userId,
@@ -169,10 +160,8 @@ router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: R
             return;
         }
 
-        // Update the message content
         scheduledMsg.message = message;
 
-        // Update scheduled time if provided
         if (scheduledTime) {
             const newScheduledDate = new Date(scheduledTime);
             if (isNaN(newScheduledDate.getTime()) || newScheduledDate <= new Date()) {
@@ -182,7 +171,6 @@ router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: R
             scheduledMsg.scheduledTime = newScheduledDate;
         }
 
-        // Update channel if provided
         if (channel && channel !== scheduledMsg.channel) {
             const accessToken = await getValidAccessTokenFromWorkspace(workspace);
             const client = new WebClient(accessToken);
@@ -213,21 +201,20 @@ router.put('/:teamId/scheduled-messages/:messageId', async (req: Request, res: R
     }
 });
 
-// DELETE /api/:teamId/scheduled-messages/:messageId - Cancel a scheduled message
 router.delete('/:teamId/scheduled-messages/:messageId', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
     const { messageId } = req.params;
 
     try {
         const message = await ScheduledMessage.findOneAndUpdate(
-            { 
-                _id: messageId, 
+            {
+                _id: messageId,
                 userId: workspace.userId,
                 teamId: workspace.team_id,
-                status: 'pending' 
+                status: 'pending'
             },
-            { $set: { status: 'failed' } }, // Mark as failed instead of cancelled
-            { new: true } // Return the updated document
+            { $set: { status: 'failed' } },
+            { new: true }
         );
 
         if (!message) {
@@ -242,39 +229,28 @@ router.delete('/:teamId/scheduled-messages/:messageId', async (req: Request, res
     }
 });
 
-// POST /api/:teamId/logout - Logout and revoke tokens
 router.post('/:teamId/logout', async (req: Request, res: Response): Promise<void> => {
     const { workspace } = req as any;
-    const { soft = false } = req.body; // Add soft logout option
 
     try {
-        if (!soft) {
-            // Full logout: revoke tokens with Slack
-            const accessToken = await getValidAccessTokenFromWorkspace(workspace);
-            const client = new WebClient(accessToken);
+        const accessToken = await getValidAccessTokenFromWorkspace(workspace);
+        const client = new WebClient(accessToken);
 
-            try {
-                await client.auth.revoke();
-                console.log(`Tokens revoked for workspace ${workspace.team_name}`);
-            } catch (revokeError) {
-                console.warn('Failed to revoke token with Slack:', revokeError);
-                // Continue with cleanup even if revoke fails
-            }
-
-            // NOTE: We DO NOT cancel scheduled messages anymore - they should persist
-            // and be accessible when the user reconnects
-
-            // Remove the workspace from database
-            await Workspace.findByIdAndDelete(workspace._id);
-
-            console.log(`Workspace ${workspace.team_name} (${workspace.team_id}) fully logged out and cleaned up`);
-        } else {
-            // Soft logout: just return success without revoking tokens
-            console.log(`Soft logout for workspace ${workspace.team_name} (${workspace.team_id})`);
+        try {
+            await client.auth.revoke();
+            console.log(`Tokens revoked for workspace ${workspace.team_name}`);
+        } catch (revokeError) {
+            console.warn('Failed to revoke token with Slack:', revokeError);
         }
 
+        workspace.accessToken = '';
+        workspace.refreshToken = '';
+        await workspace.save();
+
+        console.log(`User ${workspace.userId} logged out from workspace ${workspace.team_name} (${workspace.team_id})`);
+
         res.json({
-            message: soft ? 'Successfully signed out.' : 'Successfully logged out and disconnected workspace.',
+            message: 'Successfully logged out. Your scheduled messages will continue to work.',
             redirectUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/`
         });
 
