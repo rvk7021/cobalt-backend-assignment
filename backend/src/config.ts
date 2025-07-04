@@ -1,6 +1,3 @@
-// src/config.ts
-// Centralized configuration for environment variables.
-
 interface Config {
     SLACK_CLIENT_ID: string;
     SLACK_CLIENT_SECRET: string;
@@ -26,7 +23,6 @@ if (!config.SLACK_CLIENT_ID || !config.SLACK_CLIENT_SECRET || !config.SLACK_REDI
 }
 if (!config.ENCRYPTION_KEY || config.ENCRYPTION_KEY.length < 32) {
     console.warn('ENCRYPTION_KEY is missing or too short. Please set a strong 32-byte key in your .env file for production.');
-    // For development, we'll proceed, but this is critical for security.
 }
 
 export default config;
