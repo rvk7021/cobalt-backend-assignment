@@ -256,13 +256,17 @@ router.post('/:teamId/logout', async (req: Request, res: Response): Promise<void
             console.log(`Tokens revoked for workspace ${workspace.team_name}`);
         } catch (revokeError) {
             console.warn('Failed to revoke token with Slack:', revokeError);
-            // Continue with cleanup even if revoke fails
         }
 
-        // Clear tokens from workspace but keep the record for scheduled messages
-        workspace.accessToken = '';
-        workspace.refreshToken = '';
-        await workspace.save();
+        await Workspace.findByIdAndUpdate(workspace._id, {
+            $unset: {
+                accessToken: 1,
+                refreshToken: 1
+            },
+            $set: {
+                isActive: false
+            }
+        });
 
         console.log(`User ${workspace.userId} logged out from workspace ${workspace.team_name} (${workspace.team_id})`);
 
